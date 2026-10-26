@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎄 도쿄 3박 4일 커플 여행 지도 & 일정표</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS & JS (Cloudflare CDN) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+            border-radius: 1rem;
+            z-index: 10;
+        }
+        /* Leaflet popup styling override */
+        .leaflet-popup-content-wrapper {
+            background: #1e293b;
+            color: #f8fafc;
+            border-radius: 0.75rem;
+            border: 1px solid #334155;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        .leaflet-popup-tip {
+            background: #1e293b;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .custom-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            border-radius: 50%;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+            border: 2px solid white;
+            transition: transform 0.2s ease;
+        }
+        .custom-marker:hover {
+            transform: scale(1.2);
+        }
+
+        /* OpenStreetMap 다크 테마 필터 (API 키 필요 없는 다크 스타일링) */
+        .leaflet-tile-pane {
+            filter: brightness(0.85) invert(1) contrast(1.1) hue-rotate(200deg) saturate(0.4);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- Left Panel: Sidebar / Content -->
+    <div class="w-full md:w-1/2 lg:w-5/12 h-full flex flex-col border-r border-slate-800 bg-slate-900 overflow-hidden">
+        
+        <!-- Header -->
+        <header class="p-4 sm:p-5 border-b border-slate-800 bg-slate-950/80 backdrop-blur shrink-0">
+            <div class="flex justify-between items-center">
+                <div>
+                    <span class="px-2.5 py-1 text-xs font-semibold bg-rose-500/20 text-rose-400 rounded-full border border-rose-500/30">
+                        <i class="fa-solid fa-heart mr-1"></i> 12/25 ~ 12/28 (3박 4일)
+                    </span>
+                    <h1 class="text-xl sm:text-2xl font-bold mt-2 text-white">🎄 도쿄 연말 데이트 & 후지큐</h1>
+                </div>
+                <button id="btnToast" onclick="copyScheduleSummary()" class="p-2.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition">
+                    <i class="fa-solid fa-share-nodes text-lg"></i>
+                </button>
+            </div>
+            
+            <!-- Tab Navigation -->
+            <div class="flex space-x-2 mt-4 overflow-x-auto pb-1 scrollbar-none">
+                <button onclick="switchTab('all')" class="tab-btn active px-3.5 py-1.5 text-xs font-medium rounded-lg bg-rose-600 text-white transition shrink-0">전체 보기</button>
+                <button onclick="switchTab('day1')" class="tab-btn px-3.5 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition shrink-0">Day 1 (12/25)</button>
+                <button onclick="switchTab('day2')" class="tab-btn px-3.5 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition shrink-0">Day 2 (12/26)</button>
+                <button onclick="switchTab('day3')" class="tab-btn px-3.5 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition shrink-0">Day 3 (12/27)</button>
+                <button onclick="switchTab('day4')" class="tab-btn px-3.5 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition shrink-0">Day 4 (12/28)</button>
+                <button onclick="switchTab('hotels')" class="tab-btn px-3.5 py-1.5 text-xs font-medium rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition shrink-0">🏨 추천 숙소</button>
+            </div>
+        </header>
+
+        <!-- Main Dynamic Content List -->
+        <div id="contentList" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+            <!-- Dynamic Injection via JavaScript -->
+        </div>
+
+        <!-- Footer / Flight Summary Badge -->
+        <div class="p-3 bg-slate-950 border-t border-slate-800 text-xs text-slate-400 flex justify-between items-center shrink-0">
+            <span><i class="fa-solid fa-plane-departure text-rose-400 mr-1"></i> 출국 12/25 15:00</span>
+            <span><i class="fa-solid fa-plane-arrival text-emerald-400 mr-1"></i> 귀국 12/28 13:00</span>
+        </div>
+    </div>
+
+    <!-- Right Panel: Interactive Map -->
+    <div class="w-full md:w-1/2 lg:w-7/12 h-64 md:h-full relative bg-slate-950 p-3 sm:p-4">
+        <!-- Floating Map Control Badge -->
+        <div class="absolute top-6 right-6 z-20 bg-slate-900/90 backdrop-blur px-3 py-2 rounded-xl border border-slate-700 text-xs text-slate-300 shadow-xl flex items-center space-x-2 hidden sm:flex">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+            <span>카드를 클릭하면 지도 위치로 이동하며, 점선은 날짜별 이동 경로입니다.</span>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-2xl opacity-0 transition-opacity duration-300 pointer-events-none z-50 flex items-center space-x-2 text-sm font-medium">
+        <i class="fa-solid fa-check-circle"></i>
+        <span id="toastMsg">클립보드에 일정 요약이 복사되었습니다!</span>
+    </div>
+
+    <script>
+        // Data Structure for Places & Hotels
+        const itineraryData = [
+            {
+                id: "d1_1",
+                day: "day1",
+                dayLabel: "Day 1 - 12/25(목)",
+                title: "도쿄 공항 입국 & 시내 이동",
+                time: "17:30 ~ 19:30",
+                category: "이동",
+                icon: "fa-plane-arrival",
+                color: "#e11d48",
+                coords: [35.5494, 139.7798], // Haneda base
+                desc: "15:00 비행기 탑승 ➔ 17:30 입국 후 하네다/나리타 공항에서 시내(신주쿠/롯폰기)로 이동.",
+                tips: "하네다 공항 도착 시 모노레일/경구선 이용 약 35분, 나리타 도착 시 N'EX로 신주쿠 직통 이동."
+            },
+            {
+                id: "d1_2",
+                day: "day1",
+                dayLabel: "Day 1 - 12/25(목)",
+                title: "메이지 신궁 가이엔 크리스마스 마켓",
+                time: "19:30 ~ 20:30",
+                category: "이벤트",
+                icon: "fa-glass-water-droplet",
+                color: "#e11d48",
+                coords: [35.6728, 139.7186],
+                desc: "12/25 당일 종료되는 도쿄 최대 크리스마스 마켓! 따뜻한 글뤼바인과 대형 트리 감상.",
+                tips: "21:30 마감(입장 21:00)이므로 시내 도착 직후 1순위로 방문 권장."
+            },
+            {
+                id: "d1_3",
+                day: "day1",
+                dayLabel: "Day 1 - 12/25(목)",
+                title: "롯폰기 케야키자카 일루미네이션",
+                time: "20:30 ~ 22:30",
+                category: "야경/데이트",
+                icon: "fa-snowflake",
+                color: "#e11d48",
+                coords: [35.6598, 139.7297],
+                desc: "도쿄타워가 한눈에 보이는 조명 거리 산책 및 로맨틱한 분위기 속 저녁 식사.",
+                tips: "조명 점등 시간은 23:00까지 운영되어 시간적으로 매우 여유롭습니다."
+            },
+            {
+                id: "d2_1",
+                day: "day2",
+                dayLabel: "Day 2 - 12/26(금)",
+                title: "신주쿠 바스타 (고속버스터미널)",
+                time: "07:30 ~ 08:15",
+                category: "이동",
+                icon: "fa-bus",
+                color: "#2563eb",
+                coords: [35.6890, 139.7007],
+                desc: "후지큐 하이랜드 행 고속버스 탑승 (사전 예매 필수).",
+                tips: "숙소를 신주쿠역 근처로 잡으면 도보 5~10분 내로 터미널 이동 가능!"
+            },
+            {
+                id: "d2_2",
+                day: "day2",
+                dayLabel: "Day 2 - 12/26(금)",
+                title: "후지큐 하이랜드 & 절흉 전율미궁",
+                time: "10:00 ~ 16:30",
+                category: "테마파크/공포",
+                icon: "fa-ghost",
+                color: "#2563eb",
+                coords: [35.4870, 138.7806],
+                desc: "세계 최대 900m 보행 공포체험 '전율미궁'과 대표 절규머신(후지야마, 다카비샤) 탑승!",
+                tips: "💡 핵심: 입장 직후 키오스크/Club Fuji-Q 앱에서 전율미궁 시간지정권(유료) 우선 구매 필수."
+            },
+            {
+                id: "d2_3",
+                day: "day2",
+                dayLabel: "Day 2 - 12/26(금)",
+                title: "신주쿠 오모이데 요코초 & 저녁 식사",
+                time: "19:00 ~ 22:00",
+                category: "맛집/이자카야",
+                icon: "fa-utensils",
+                color: "#2563eb",
+                coords: [35.6931, 139.6994],
+                desc: "신주쿠 복귀 후 레트로 분위기의 꼬치구이 골목이나 나베(모츠나베/스키야키) 데이트.",
+                tips: "추운 날씨 후지큐 야외 일정을 마친 후 따뜻한 국물 요리를 추천합니다."
+            },
+            {
+                id: "d3_1",
+                day: "day3",
+                dayLabel: "Day 3 - 12/27(토)",
+                title: "아사쿠사 센소지 & 나카미세도리",
+                time: "10:00 ~ 12:30",
+                category: "관광",
+                icon: "fa-torii-gate",
+                color: "#9333ea",
+                coords: [35.7148, 139.7967],
+                desc: "도쿄에서 가장 오래된 전통 사찰 산책 & 일본 전통 길거리 디저트 탐방.",
+                tips: "연말 기치 장터 분위기를 만끽할 수 있습니다."
+            },
+            {
+                id: "d3_2",
+                day: "day3",
+                dayLabel: "Day 3 - 12/27(토)",
+                title: "시부야 스카이 & 미야시타 파크",
+                time: "13:30 ~ 16:30",
+                category: "핫플/전망대",
+                icon: "fa-building-user",
+                color: "#9333ea",
+                coords: [35.6585, 139.7013],
+                desc: "도쿄 도심을 한눈에 조망하는 야외 파노라마 전망대 & 트렌디 쇼핑 파크.",
+                tips: "시부야 스카이는 4주 전 사전 티켓 오픈 시 해질녘 타임으로 미리 예약하세요."
+            },
+            {
+                id: "d3_3",
+                day: "day3",
+                dayLabel: "Day 3 - 12/27(토)",
+                title: "오다이바 레인보우 브릿지 야경",
+                time: "18:00 ~ 21:00",
+                category: "야경/데이트",
+                icon: "fa-bridge",
+                color: "#9333ea",
+                coords: [35.6293, 139.7744],
+                desc: "자유의 여신상과 레인보우 브릿지 야경을 보며 즐기는 감성적인 연말 데이트.",
+                tips: "해변 공원 분위기와 함께 주변 덱스 도쿄 비치 레스토랑 이용 추천."
+            },
+            {
+                id: "d4_1",
+                day: "day4",
+                dayLabel: "Day 4 - 12/28(일)",
+                title: "체크아웃 & 공항 이동",
+                time: "08:30 ~ 10:30",
+                category: "귀국",
+                icon: "fa-suitcase",
+                color: "#059669",
+                coords: [35.6897, 139.7006],
+                desc: "호텔 체크아웃 후 출국 공항(나리타/하네다)으로 이동.",
+                tips: "13:00 비행기이므로 최소 10:30~11:00에는 공항 도착 필요."
+            },
+            {
+                id: "d4_2",
+                day: "day4",
+                dayLabel: "Day 4 - 12/28(일)",
+                title: "공항 면세점 쇼핑 & 출국",
+                time: "10:30 ~ 13:00",
+                category: "귀국",
+                icon: "fa-plane-departure",
+                color: "#059669",
+                coords: [35.7720, 140.3929], // Narita base
+                desc: "도쿄 바나나, 로이즈 초콜릿 등 기념품 구입 후 13:00 비행기 탑승 귀국.",
+                tips: "보안 검색대가 연말이라 붐빌 수 있으니 출국 수속을 서두르세요."
+            }
+        ];
+
+        const hotelData = [
+            {
+                id: "h1",
+                name: "오다큐 호텔 센추리 사우전 타워",
+                area: "신주쿠 남쪽 출구 (1순위 강추)",
+                coords: [35.6876, 139.7004],
+                price: "20~30만원대 / 박",
+                tag: "후지큐 버스 3분 거리",
+                desc: "바스타 신주쿠(후지큐 고속버스터미널) 도보 3분! 후지큐 오픈런과 공항 이동이 극도로 편리한 커플 강추 럭셔리 뷰 호텔.",
+                color: "#d97706"
+            },
+            {
+                id: "h2",
+                name: "호텔 그레이서리 신주쿠",
+                area: "신주쿠 가부키초",
+                coords: [35.6953, 139.7020],
+                price: "15~25만원대 / 박",
+                tag: "갓성비 + 랜드마크",
+                desc: "고질라 헤드로 유명한 신주쿠의 상징적인 호텔. 야간 먹거리 및 밤문화 데이트 접근성 최상.",
+                color: "#d97706"
+            },
+            {
+                id: "h3",
+                name: "도큐 스테이 신주쿠",
+                area: "신주쿠 산초메",
+                coords: [35.6908, 139.7042],
+                price: "15~22만원대 / 박",
+                tag: "깔끔함 + 편리함",
+                desc: "신주쿠산초메역 바로 옆. 세탁기와 전자레인지가 룸에 구비되어 3박 4일간 편안하고 깔끔한 숙박 가능.",
+                color: "#d97706"
+            }
+        ];
+
+        // Map & Marker Management
+        let map;
+        let markers = {};
+        let routePolylines = {};
+        let activeTab = 'all';
+
+        function initMap() {
+            // Center between Tokyo and Fuji-Q
+            map = L.map('map', {
+                zoomControl: false
+            }).setView([35.6600, 139.7200], 11);
+
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            // OpenStreetMap 타일 정책 차단을 회피하고 API 키 없이 100% 오픈된 Esri 지도 타일 적용
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, TomTom',
+                maxZoom: 18
+            }).addTo(map);
+
+            // Add Itinerary Markers
+            itineraryData.forEach(item => {
+                const customHtml = `<div class="custom-marker" style="background-color: ${item.color}; width: 34px; height: 34px;">
+                    <i class="fa-solid ${item.icon} text-xs"></i>
+                </div>`;
+                
+                const icon = L.divIcon({
+                    html: customHtml,
+                    className: '',
+                    iconSize: [34, 34],
+                    iconAnchor: [17, 17]
+                });
+
+                const marker = L.marker(item.coords, { icon: icon }).addTo(map);
+                marker.bindPopup(`
+                    <div class="p-1 max-w-xs">
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded text-white" style="background-color:${item.color}">${item.dayLabel}</span>
+                        <h4 class="font-bold text-base text-white mt-1.5">${item.title}</h4>
+                        <p class="text-xs text-rose-400 mt-0.5"><i class="fa-regular fa-clock mr-1"></i>${item.time}</p>
+                        <p class="text-xs text-slate-300 mt-2">${item.desc}</p>
+                    </div>
+                `);
+
+                markers[item.id] = marker;
+            });
+
+            // Add Hotel Markers
+            hotelData.forEach(hotel => {
+                const customHtml = `<div class="custom-marker" style="background-color: ${hotel.color}; width: 36px; height: 36px; border-color: #fef08a;">
+                    <i class="fa-solid fa-hotel text-xs"></i>
+                </div>`;
+                
+                const icon = L.divIcon({
+                    html: customHtml,
+                    className: '',
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 18]
+                });
+
+                const marker = L.marker(hotel.coords, { icon: icon }).addTo(map);
+                marker.bindPopup(`
+                    <div class="p-1 max-w-xs">
+                        <span class="text-xs font-bold px-2 py-0.5 rounded bg-amber-500 text-slate-950">추천 숙소</span>
+                        <h4 class="font-bold text-base text-white mt-1.5">${hotel.name}</h4>
+                        <p class="text-xs text-amber-300 font-medium">${hotel.tag}</p>
+                        <p class="text-xs text-slate-300 mt-2">${hotel.desc}</p>
+                    </div>
+                `);
+
+                markers[hotel.id] = marker;
+            });
+
+            // Create Polyline Route Lines per Day
+            const dayRoutes = {
+                day1: { color: "#e11d48", coords: [] },
+                day2: { color: "#2563eb", coords: [] },
+                day3: { color: "#9333ea", coords: [] },
+                day4: { color: "#059669", coords: [] }
+            };
+
+            itineraryData.forEach(item => {
+                if (dayRoutes[item.day]) {
+                    dayRoutes[item.day].coords.push(item.coords);
+                }
+            });
+
+            Object.keys(dayRoutes).forEach(day => {
+                const route = dayRoutes[day];
+                if (route.coords.length > 1) {
+                    const polyline = L.polyline(route.coords, {
+                        color: route.color,
+                        weight: 3.5,
+                        opacity: 0.75,
+                        dashArray: '8, 8',
+                        lineJoin: 'round'
+                    }).addTo(map);
+                    routePolylines[day] = polyline;
+                }
+            });
+        }
+
+        // Render List Panel Content
+        function renderContent(filter = 'all') {
+            const listContainer = document.getElementById('contentList');
+            listContainer.innerHTML = '';
+
+            if (filter === 'hotels') {
+                // Render Hotel Recommendations View
+                const headerHtml = `
+                    <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-4">
+                        <h3 class="text-sm font-bold text-amber-300 flex items-center">
+                            <i class="fa-solid fa-map-location-dot mr-2"></i> 숙소 위치 최적 추천: 신주쿠역 주변
+                        </h3>
+                        <p class="text-xs text-slate-300 mt-1.5 leading-relaxed">
+                            2일 차 <strong>후지큐 하이랜드 고속버스(바스타 신주쿠) 오픈런</strong>과 첫날 공항/야경 이동 편의성을 고려할 때 <strong>신주쿠역 인근 숙소</strong>가 절대적으로 유리합니다.
+                        </p>
+                    </div>
+                `;
+                listContainer.insertAdjacentHTML('beforeend', headerHtml);
+
+                hotelData.forEach(hotel => {
+                    const card = document.createElement('div');
+                    card.className = "bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-amber-500/50 rounded-2xl p-4 transition cursor-pointer shadow-lg";
+                    card.onclick = () => focusOnMap(hotel.id, hotel.coords, 15);
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">${hotel.tag}</span>
+                                <h4 class="text-base font-bold text-white mt-1.5">${hotel.name}</h4>
+                                <p class="text-xs text-slate-400 mt-0.5"><i class="fa-solid fa-location-dot mr-1"></i>${hotel.area}</p>
+                            </div>
+                            <span class="text-xs font-semibold text-slate-300 bg-slate-700/60 px-2.5 py-1 rounded-lg">${hotel.price}</span>
+                        </div>
+                        <p class="text-xs text-slate-300 mt-3 leading-relaxed">${hotel.desc}</p>
+                        <div class="mt-3 text-right">
+                            <span class="text-xs text-amber-400 font-medium hover:underline">지도에서 보기 <i class="fa-solid fa-chevron-right text-[10px] ml-1"></i></span>
+                        </div>
+                    `;
+                    listContainer.appendChild(card);
+                });
+                return;
+            }
+
+            // Render Day Schedules
+            let itemsToRender = itineraryData;
+            if (filter !== 'all') {
+                itemsToRender = itineraryData.filter(item => item.day === filter);
+            }
+
+            if (filter === 'all') {
+                // Show Fuji-Q Tip Box on All view
+                const tipBox = `
+                    <div class="bg-rose-950/40 border border-rose-500/30 rounded-2xl p-4 mb-2">
+                        <div class="flex items-center space-x-2 text-rose-400 font-bold text-sm">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span>전율미궁 & 일루미네이션 핵심 체크포인트</span>
+                        </div>
+                        <ul class="text-xs text-slate-300 mt-2 space-y-1.5 list-disc list-inside">
+                            <li><strong>12/25 크리스마스 마켓:</strong> 21:30 종료되므로 도착 직후 1순위로 방문하세요.</li>
+                            <li><strong>후지큐 전율미궁:</strong> 입장 후 키오스크/앱에서 <strong>시간지정 예약권(유료)</strong>을 즉시 확보해야 체험할 수 있습니다.</li>
+                        </ul>
+                    </div>
+                `;
+                listContainer.insertAdjacentHTML('beforeend', tipBox);
+            }
+
+            let currentDayHeader = "";
+
+            itemsToRender.forEach(item => {
+                if (filter === 'all' && currentDayHeader !== item.dayLabel) {
+                    currentDayHeader = item.dayLabel;
+                    const dayHeaderHtml = `
+                        <div class="sticky top-0 z-10 bg-slate-900/90 backdrop-blur py-2 font-bold text-sm text-slate-300 flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full" style="background-color:${item.color}"></span>
+                            <span>${currentDayHeader}</span>
+                        </div>
+                    `;
+                    listContainer.insertAdjacentHTML('beforeend', dayHeaderHtml);
+                }
+
+                const card = document.createElement('div');
+                card.className = "bg-slate-800/60 hover:bg-slate-800 border border-slate-700/70 hover:border-slate-500 rounded-2xl p-4 transition cursor-pointer shadow-md";
+                card.onclick = () => focusOnMap(item.id, item.coords, 14);
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center space-x-2.5">
+                            <div class="w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0" style="background-color:${item.color}">
+                                <i class="fa-solid ${item.icon} text-xs"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm sm:text-base font-bold text-white">${item.title}</h4>
+                                <span class="text-xs text-rose-400 font-medium"><i class="fa-regular fa-clock mr-1"></i>${item.time}</span>
+                            </div>
+                        </div>
+                        <span class="text-[11px] font-medium text-slate-400 bg-slate-700/40 px-2 py-0.5 rounded-md border border-slate-600/30">${item.category}</span>
+                    </div>
+                    <p class="text-xs text-slate-300 mt-2.5 leading-relaxed">${item.desc}</p>
+                    <div class="mt-2.5 p-2 bg-slate-950/40 rounded-lg text-[11px] text-amber-300/90 border border-amber-500/10">
+                        <i class="fa-solid fa-lightbulb text-amber-400 mr-1"></i>${item.tips}
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        // Focus map location and open popup
+        function focusOnMap(id, coords, zoomLevel = 14) {
+            map.flyTo(coords, zoomLevel, {
+                duration: 1.2
+            });
+            if (markers[id]) {
+                setTimeout(() => {
+                    markers[id].openPopup();
+                }, 800);
+            }
+        }
+
+        // Switch active tab
+        function switchTab(tabKey) {
+            activeTab = tabKey;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-rose-600', 'text-white');
+                btn.classList.add('bg-slate-800', 'text-slate-300');
+            });
+            event.target.classList.remove('bg-slate-800', 'text-slate-300');
+            event.target.classList.add('bg-rose-600', 'text-white');
+
+            renderContent(tabKey);
+
+            // Toggle route polyline visibility & highlighting
+            Object.keys(routePolylines).forEach(day => {
+                const line = routePolylines[day];
+                if (tabKey === 'all') {
+                    line.addTo(map);
+                    line.setStyle({ opacity: 0.75, weight: 3.5, dashArray: '8, 8' });
+                } else if (tabKey === day) {
+                    line.addTo(map);
+                    line.setStyle({ opacity: 1, weight: 5, dashArray: null });
+                } else {
+                    map.removeLayer(line);
+                }
+            });
+
+            // Bounds adjustments
+            if (tabKey === 'day2') {
+                // Pan map to include Fuji-Q and Shinjuku
+                map.flyToBounds([
+                    [35.6890, 139.7007],
+                    [35.4870, 138.7806]
+                ], { padding: [50, 50] });
+            } else if (tabKey === 'hotels') {
+                map.flyTo([35.6910, 139.7020], 15);
+            } else {
+                map.flyTo([35.6600, 139.7200], 11);
+            }
+        }
+
+        // Copy schedule summary toast notification
+        function copyScheduleSummary() {
+            const summary = `🎄 도쿄 3박 4일 커플 여행 요약 (12/25 ~ 12/28)\n- 12/25: 입국 ➔ 크리스마스 마켓(가이엔) ➔ 롯폰기 일루미네이션\n- 12/26: 신주쿠 버스타 ➔ 후지큐 하이랜드(전율미궁) ➔ 신주쿠 나베/이자카야\n- 12/27: 아사쿠사 ➔ 시부야 스카이 ➔ 오다이바 레인보우 브릿지 야경\n- 12/28: 공항 이동 ➔ 면세점 쇼핑 ➔ 13:00 출국`;
+            
+            // Clipboard fallback
+            const dummy = document.createElement("textarea");
+            document.body.appendChild(dummy);
+            dummy.value = summary;
+            dummy.select();
+            document.execCommand("copy");
+            document.body.removeChild(dummy);
+
+            const toast = document.getElementById('toast');
+            toast.classList.remove('opacity-0');
+            toast.classList.add('opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0');
+            }, 2500);
+        }
+
+        // Window load initialization
+        window.onload = function() {
+            initMap();
+            renderContent('all');
+        };
+    </script>
+</body>
+</html>
